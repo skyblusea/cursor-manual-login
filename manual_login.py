@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import os
+import requests
 from cursor_auth import CursorAuth
 from check_user_authorized import check_user_authorized
 from get_user_token import get_token_from_cookie
 from colorama import Fore, Style, init
+from cursor_acc_info import UsageManager, format_subscription_type
 
 # Initialize colorama
 init(autoreset=True)
@@ -14,7 +16,9 @@ EMOJI = {
     'SUCCESS': '✅',
     'ERROR': '❌',
     'INFO': 'ℹ️',
-    'KEY': '🔐'
+    'KEY': '🔐',
+    'DEBUG': '🔍',
+    'WARNING': '⚠️'
 }
 
 def manual_login():
@@ -36,6 +40,10 @@ def manual_login():
         print(f"{Fore.RED}{EMOJI['ERROR']} Invalid token format{Style.RESET_ALL}")
         return False
 
+    # Print token details for debugging
+    print(f"\n{Fore.CYAN}{EMOJI['DEBUG']} Token length: {len(token)} characters{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{EMOJI['DEBUG']} Token format: {token[:10]}...{token[-10:] if len(token) > 20 else token[10:]}{Style.RESET_ALL}")
+
     # Verify token
     print(f"\n{Fore.CYAN}{EMOJI['INFO']} Verifying token validity...{Style.RESET_ALL}")
     is_valid = check_user_authorized(token)
@@ -45,6 +53,21 @@ def manual_login():
         return False
 
     print(f"{Fore.GREEN}{EMOJI['SUCCESS']} Token verified successfully!{Style.RESET_ALL}")
+
+    # Check subscription status using UsageManager
+    print(f"\n{Fore.CYAN}{EMOJI['INFO']} Checking subscription status...{Style.RESET_ALL}")
+    subscription_info = UsageManager.get_stripe_profile(token)
+
+    if subscription_info:
+        subscription_type = format_subscription_type(subscription_info)
+        print(f"{Fore.GREEN}{EMOJI['SUCCESS']} Subscription Type: {subscription_type}{Style.RESET_ALL}")
+
+        # Show remaining trial days if applicable
+        days_remaining = subscription_info.get("daysRemainingOnTrial")
+        if days_remaining is not None and days_remaining > 0:
+            print(f"{Fore.GREEN}{EMOJI['INFO']} Remaining Pro Trial: {days_remaining} days{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}{EMOJI['WARNING']} Could not verify subscription status{Style.RESET_ALL}")
 
     # Get email (optional)
     print(f"\n{Fore.YELLOW}{EMOJI['INFO']} Enter email (leave blank for default):")
@@ -94,6 +117,7 @@ def manual_login():
 
         if result:
             print(f"\n{Fore.GREEN}{EMOJI['SUCCESS']} Authentication information updated successfully!{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{EMOJI['INFO']} Please restart Cursor for the changes to take effect.{Style.RESET_ALL}")
             return True
         else:
             print(f"\n{Fore.RED}{EMOJI['ERROR']} Failed to update authentication information{Style.RESET_ALL}")
